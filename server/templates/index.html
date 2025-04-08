@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyU Drive</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            background-image: url('{{ base_url }}/static/image/backGround.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .auth-container {
+            width: 380px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+            font-size: 20px;
+        }
+        .tabs div {
+            margin: 0 20px;
+            cursor: pointer;
+            padding-bottom: 6px;
+        }
+        .active-tab {
+            border-bottom: 3px solid darkred;
+            color: darkred;
+        }
+        input[type="text"], input[type="password"], input[type="email"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+        }
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: darkred;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .links {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #777;
+            display: flex;
+            justify-content: space-around;
+        }
+        .links a {
+            text-decoration: none;
+            color: darkred;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="tabs">
+            <div id="login-tab" class="active-tab">Login</div>
+            <div id="register-tab">Register</div>
+        </div>
+
+        <form method="POST" action="/login" id="auth-form">
+            <input type="email" id="email-field" name="email" placeholder="Your email" style="display:none;">
+            <input type="text" name="username" placeholder="Your username" required>
+            <input type="password" name="password" placeholder="Your password" required>
+            <button class="auth-btn" type="submit" name="login_submit">Login</button>
+        </form>
+
+        <div class="links">
+            <a href="/forgot">Forgot password?</a>
+        </div>
+    </div>
+
+    <script>
+        const loginTab = document.getElementById('login-tab');
+        const registerTab = document.getElementById('register-tab');
+        const emailField = document.getElementById('email-field');
+        const authBtn = document.querySelector('.auth-btn');
+        const form = document.getElementById('auth-form');
+
+        loginTab.addEventListener('click', () => {
+            loginTab.classList.add('active-tab');
+            registerTab.classList.remove('active-tab');
+            emailField.style.display = 'none';
+            authBtn.textContent = 'Login';
+            authBtn.name = 'login_submit';
+            form.action = '/login';
+        });
+
+        registerTab.addEventListener('click', () => {
+            registerTab.classList.add('active-tab');
+            loginTab.classList.remove('active-tab');
+            emailField.style.display = 'block';
+            authBtn.textContent = 'Register';
+            authBtn.name = 'register_submit';
+            form.action = '/register';
+        });
+    </script>
+</body>
+</html>

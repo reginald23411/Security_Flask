@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PolyU Drive - Dashboard</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .btn { background: darkred; color: white; padding: 8px 15px; border: none; cursor: pointer; margin: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 20px; width: 50%; border-radius: 5px; }
+        .form-group { margin-bottom: 15px; }
+        input { padding: 8px; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    
+    <div class="header">
+        <h1>PolyU Drive</h1>
+        <button class="btn" onclick="location.href='/'">Logout</button>
+    </div>
+    
+    <button class="btn" id="upload-btn">Upload File</button>
+    
+    <h2>My Files</h2>
+    <table id="files-table">
+        <tr>
+            <th>Filename</th>
+            <th>Uploaded</th>
+            <th>Actions</th>
+        </tr>
+        <!-- Files will be loaded here -->
+    </table>
+    
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <h2>Upload File</h2>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file-input">Select File:</label>
+                    <input type="file" id="file-input" required>
+                </div>
+                <button type="submit" class="btn">Upload</button>
+                <button type="button" class="btn" onclick="closeModal('upload-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal">
+        <div class="modal-content">
+            <h2>Share File</h2>
+            <p>Share with user:</p>
+            <form id="share-form">
+                <input type="hidden" id="share-file-id">
+                <div class="form-group">
+                    <label for="share-username">Username:</label>
+                    <input type="text" id="share-username" required>
+                </div>
+                <button type="submit" class="btn">Share</button>
+                <button type="button" class="btn" onclick="closeModal('share-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <h2>Edit File Name</h2>
+            <form id="edit-form">
+                <input type="hidden" id="edit-file-id">
+                <div class="form-group">
+                    <label for="new-filename">New File Name:</label>
+                    <input type="text" id="new-filename" required>
+                </div>
+                <button type="submit" class="btn">Save</button>
+                <button type="button" class="btn" onclick="closeModal('edit-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    
+    <script>
+        
+        // 從後端傳入動態 user_id，利用 Jinja2 模板語法注入
+        let userId = "{{ user_id }}";
+        
+        // Modal functions
+        document.getElementById('upload-btn').onclick = function() {
+            document.getElementById('upload-modal').style.display = 'block';
+        }
+        
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+        
+        // 載入檔案
+        document.addEventListener('DOMContentLoaded', loadFiles);
+        
+        function loadFiles() {
+            console.log("Using userID:", userId);
+            fetch('/fetch_files')
+                    .then(response => response.json())
+                    .then(data =>{
+                    console.log("Files response:", data); 
+                    const table = document.getElementById('files-table');
+                    
+                    // 清除現有行（保留表頭）
+                    while (table.rows.length > 1) {
+                        table.deleteRow(1);
+                    }
+                    
+                    if (data.files && data.files.length > 0) {
+                        data.files.forEach(file => {
+                            const row = table.insertRow();
+                            
+                            const cell1 = row.insertCell(0);
+                            cell1.textContent = file.filename;
+                            
+                            const cell2 = row.insertCell(1);
+                            cell2.textContent = new Date(file.uploaded_at).toLocaleDateString();
+                            
+                            const cell3 = row.insertCell(2);
+
+                            const downloadBtn = document.createElement('button');
+                            downloadBtn.textContent = 'Download';
+                            downloadBtn.className = 'btn';
+                            downloadBtn.onclick = function() { window.location.href = `/download/${file.id}`; };
+                            cell3.appendChild(downloadBtn);
+
+                            const editBtn = document.createElement('button');
+                            editBtn.textContent = 'Edit';
+                            editBtn.className = 'btn';
+                            editBtn.onclick = function() { openEditModal(file.id, file.filename); };
+                            cell3.appendChild(editBtn);
+
+                            if (!file.shared) {
+                                const shareBtn = document.createElement('button');
+                                shareBtn.textContent = 'Share';
+                                shareBtn.className = 'btn';
+                                shareBtn.onclick = function() { prepareShare(file.id); };
+                                cell3.appendChild(shareBtn);
+                                
+                                const deleteBtn = document.createElement('button');
+                                deleteBtn.textContent = 'Delete';
+                                deleteBtn.className = 'btn';
+                                deleteBtn.onclick = function() { deleteFile(file.id); };
+                                cell3.appendChild(deleteBtn);
+                            }
+                        });
+                    } else {
+                        const row = table.insertRow();
+                        const cell = row.insertCell(0);
+                        cell.colSpan = 3;
+                        cell.textContent = 'No files found';
+                        cell.style.textAlign = 'center';
+                    }
+                })
+                .catch(error => {
+                    console.error("Error loading files:", error);
+                    const table = document.getElementById('files-table');
+                    const row = table.insertRow();
+                    const cell = row.insertCell(0);
+                    cell.colSpan = 3;
+                    cell.textContent = 'Error loading files';
+                    cell.style.textAlign = 'center';
+                });
+        }
+        
+        // 上傳檔案
+        document.getElementById('upload-form').onsubmit = function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file-input');
+            
+            if (!fileInput.files[0]) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const fileData = new Uint8Array(event.target.result);
+                uploadFile(fileData, fileInput.files[0].name);
+            };
+            reader.readAsArrayBuffer(fileInput.files[0]);
+        };
+        
+        function uploadFile(fileData, filename) {
+        // 先發送到客戶端 Python 進行加密
+        console.log("Uploading with userId:", userId);
+        fetch('/encrypt', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_data: Array.from(fileData)  // 轉換為數組以便 JSON 序列化
+            })
+        })
+        .then(response => response.json())
+        .then(encryptedResult => {
+            // 創建一個包含加密數據的 Blob
+            const encryptedData = new Uint8Array(encryptedResult.encrypted_data);
+            const blob = new Blob([encryptedData]);
+            
+            // 創建表單數據
+            const formData = new FormData();
+            formData.append('file', blob, filename);
+            formData.append('user_id', userId);
+            formData.append('filename', filename);
+            formData.append('metadata', encryptedResult.metadata);
+            
+            // 將加密後的數據上傳到伺服器
+            return fetch('{{ base_url }}/api/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Upload response:", data);
+            if (data.success) {
+                closeModal('upload-modal');
+                document.getElementById('upload-form').reset();
+                loadFiles();
+                alert('File uploaded successfully');
+            } else {
+                alert('Upload failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Upload failed due to an error');
+        });
+    }
+        // edit file name
+        function openEditModal(fileId, currentName) {
+        document.getElementById('edit-file-id').value = fileId;
+        document.getElementById('new-filename').value = currentName;
+        document.getElementById('edit-modal').style.display = 'block';
+    }
+
+        document.getElementById('edit-form').onsubmit = function(e) {
+            e.preventDefault();
+            const fileId = document.getElementById('edit-file-id').value;
+            const newName = document.getElementById('new-filename').value;
+
+            fetch(`{{ base_url }}/api/edit_file`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: fileId, user_id: userId, new_filename: newName })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal('edit-modal');
+                    loadFiles();
+                    alert("Filename updated!");
+                } else {
+                    alert("Failed to update filename: " + (data.error || 'Unknown error'));
+                }
+            });
+        };
+
+        // 分享檔案
+        function prepareShare(fileId) {
+            document.getElementById('share-file-id').value = fileId;
+            document.getElementById('share-modal').style.display = 'block';
+        }
+
+        document.getElementById('share-form').onsubmit = async function(e) {
+            e.preventDefault();
+
+            const fileId = document.getElementById('share-file-id').value;
+            const username = document.getElementById('share-username').value;
+
+            try {
+                // 1. 調用 Client 後端獲取加密後的 AES 金鑰
+                const encryptResponse = await fetch(`/get_encrypted_AES_Key/${username}?file_id=${fileId}&owner_id=${userId}`);
+                const encryptData = await encryptResponse.json();
+
+                if (!encryptData.success) {
+                    throw new Error(encryptData.error || "Failed to encrypt AES key");
+                }
+                const encryptedAesKey = encryptData.encrypted_aes_key;
+
+                // 2. 提交共享請求到 Server，包含加密金鑰
+                const shareResponse = await fetch('{{ base_url }}/api/share_file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file_id: fileId,
+                        owner_id: userId,
+                        shared_with_username: username,
+                        encrypted_aes_key: encryptedAesKey  // 新增加密金鑰字段
+                    })
+                });
+
+                const data = await shareResponse.json();
+                if (data.success) {
+                    closeModal('share-modal');
+                    this.reset();
+                    alert('File shared successfully with ' + username);
+                } else {
+                    alert('Sharing failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Sharing failed: ' + error.message);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Current userId:", userId);
+            if (!userId) {
+                console.error("userId is missing");
+                // 處理 userId 缺失的情況（例如重定向到登入頁）
+            }
+        });
+    // 在頁面載入時獲取用戶ID
+        
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 先嘗試從會話存儲獲取
+            fetch('/get_current_user')
+                .then(response => response.json())
+                .then(data => {
+                    userId = data.user_id;
+                    console.log("Retrieved userId:", userId);
+                    loadFiles();
+                })
+                .catch(error => {
+                    console.error("Error getting user ID:", error);
+                });
+            
+        });
+        // 刪除檔案
+        function deleteFile(fileId) {
+            if (!confirm('Are you sure you want to delete this file?')) return;
+            
+            fetch('{{ base_url }}/api/delete_file/' + fileId + '/' + userId, {
+            method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadFiles();
+                    alert('File deleted successfully');
+                } else {
+                    alert('Deletion failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Deletion failed due to an error');
+            });
+        }
+        // 在頁面加載時輸出用戶 ID 進行調試
+        console.log("User ID:", userId);
+    </script>
+    
+</body>
+</html>
