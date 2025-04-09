@@ -240,5 +240,19 @@ def get_encrypted_key(file_id):
     else:
         return jsonify(success=False, error="No shared AES key found or not authorized")
 
+# edit file content
+@Server.route('/api/update_file_content', methods=['PUT'])
+def update_file_content():
+    file_id = request.form.get('file_id')
+    user_id = request.form.get('user_id')
+    metadata = request.form.get('metadata')
+    encrypted_file = request.files['encrypted_file'].read()
+
+    query = "UPDATE files SET encrypted_data = ?, file_metadata = ? WHERE id = ? AND owner_id = ?"
+    success = serverDBOperation.update_record(query, (encrypted_file, metadata, file_id, user_id))
+
+    return jsonify(success=success)
+
+
 if __name__ == '__main__':
     Server.run()

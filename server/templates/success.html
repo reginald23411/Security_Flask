@@ -67,7 +67,7 @@
         </div>
     </div>
 
-    <!-- Edit Modal -->
+    <!-- Edit File Name Modal -->
     <div id="edit-modal" class="modal">
         <div class="modal-content">
             <h2>Edit File Name</h2>
@@ -79,6 +79,21 @@
                 </div>
                 <button type="submit" class="btn">Save</button>
                 <button type="button" class="btn" onclick="closeModal('edit-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit File Content Modal -->
+    <div id="edit-content-modal" class="modal">
+        <div class="modal-content">
+            <h2>Edit File Content</h2>
+            <form id="edit-content-form">
+                <input type="hidden" id="edit-file-id-content">
+                <div class="form-group">
+                    <textarea id="file-content-area" rows="15" style="width:100%;"></textarea>
+                </div>
+                <button type="submit" class="btn">Save Changes</button>
+                <button type="button" class="btn" onclick="closeModal('edit-content-modal')">Cancel</button>
             </form>
         </div>
     </div>
@@ -133,10 +148,16 @@
 
                             if (!file.shared) {
                                 const editBtn = document.createElement('button');
-                                editBtn.textContent = 'Edit';
+                                editBtn.textContent = 'Change file name';
                                 editBtn.className = 'btn';
                                 editBtn.onclick = function() { openEditModal(file.id, file.filename); };
                                 cell3.appendChild(editBtn);
+
+                                const editContentBtn = document.createElement('button');
+                                editContentBtn.textContent = 'Edit Content';
+                                editContentBtn.className = 'btn';
+                                editContentBtn.onclick = function() { openEditContentModal(file.id,file.filename); };
+                                cell3.appendChild(editContentBtn);
 
                                 const shareBtn = document.createElement('button');
                                 shareBtn.textContent = 'Share';
@@ -317,6 +338,72 @@
                 // 處理 userId 缺失的情況（例如重定向到登入頁）
             }
         });
+
+        // Edit File Content
+        function openEditContentModal(fileId,filename) {
+            const editableExtensions = ['.txt', '.md', '.csv', '.json', '.xml', '.html']; // add more if needed
+            const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+
+            if (!editableExtensions.includes(ext)) {
+                alert(`Editing not supported for file type: ${ext}`);
+                return;
+            }
+
+            fetch(`/download/${fileId}?mode=edit`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('edit-file-id-content').value = fileId;
+                    document.getElementById('file-content-area').value = data.content;
+                    document.getElementById('edit-content-modal').style.display = 'block';
+                })
+                .catch(error => {
+                    alert("Error loading file content: " + error.message);
+                });
+        }
+
+        document.getElementById('edit-content-form').onsubmit = function(e) {
+            e.preventDefault();
+
+            const fileId = document.getElementById('edit-file-id-content').value;
+            const content = document.getElementById('file-content-area').value;
+
+            fetch('/encrypt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_data: Array.from(new TextEncoder().encode(content)) })
+            })
+            .then(response => response.json())
+            .then(encryptedResult => {
+                const encryptedData = new Uint8Array(encryptedResult.encrypted_data);
+                const blob = new Blob([encryptedData]);
+                const formData = new FormData();
+                formData.append('file_id', fileId);
+                formData.append('user_id', userId);
+                formData.append('encrypted_file', blob);
+                formData.append('metadata', encryptedResult.metadata);
+
+                return fetch('{{ base_url }}/api/update_file_content', {
+                    method: 'PUT',
+                    body: formData
+                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('File updated successfully!');
+                    closeModal('edit-content-modal');
+                    loadFiles();
+                } else {
+                    alert('Failed to update file: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to update due to error.");
+            });
+        };
+
+
     // 在頁面載入時獲取用戶ID
         
 

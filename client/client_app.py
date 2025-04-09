@@ -317,6 +317,9 @@ def encrypt_endpoint():
 @Client.route('/download/<file_id>')
 def download_endpoint(file_id):
 
+    # get frontend respond with mode to identify which function user is calling (edit | download)
+    mode = request.args.get('mode', 'download')
+
     user_id = session.get('user_id')
 
     key_response = requests.get(f"{SERVER_API_BASE}/get_encrypted_key/{file_id}", params={'user_id': user_id})
@@ -360,7 +363,15 @@ def download_endpoint(file_id):
         else:
             decrypted_data = decrypt_file(encrypted_data, metadata,owner)
 
-        # 返回解密後的文件
+        if mode =='edit':
+            # return file content in frontend
+            return jsonify({
+                "success": True,
+                "filename": filename,
+                "content": decrypted_data.decode('utf-8')
+            })
+
+        # download file
         return send_file(
             io.BytesIO(decrypted_data),
             mimetype='application/octet-stream',
