@@ -4,21 +4,20 @@ import base64
 from flask_cors import CORS
 
 Server = Flask(__name__)
-CORS(Server)  # 啟用 CORS
+CORS(Server)  # enable CORS
 
 # checking if server is empty and initialize server for setting up from scratch
 serverDBOperation.check_and_initialize_server()
 
-#------------respond page to client ---------------
+# ------------respond page to client ---------------
 @Server.route('/api/page/')
 def login_page():
     return render_template("index.html",base_url=request.host_url)
 
 @Server.route('/api/page/driver')
 def driver_page():
-    # 使用請求參數中的用戶ID
     return render_template("success.html",base_url=request.host_url)
-#----------------------------------------------------
+# ----------------------------------------------------
 
 @Server.route('/api/register', methods=['POST'])
 def register():
@@ -231,13 +230,15 @@ def get_encrypted_key(file_id):
         WHERE file_id = ? AND shared_with_id = ?
     """
     result = serverDBOperation.read_data(query, (file_id, user_id))
+    owner_result = serverDBOperation.read_data(serverDBOperation.get_owner_query,(file_id,))
 
-    if not result:
+    if result:
+        encrypted_key = result[0][0]
+        return jsonify(success=True, encrypted_key=encrypted_key)
+    elif owner_result:
+        return jsonify(success=True,owner_result=True)
+    else:
         return jsonify(success=False, error="No shared AES key found or not authorized")
-
-    encrypted_key = result[0][0]
-    return jsonify(success=True, encrypted_key=encrypted_key)
-
 
 if __name__ == '__main__':
     Server.run()

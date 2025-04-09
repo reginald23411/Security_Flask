@@ -86,7 +86,7 @@
     
     <script>
         
-        // 從後端傳入動態 user_id，利用 Jinja2 模板語法注入
+        // Incoming dynamic user_id from backend, injected using Jinja2 template syntax
         let userId = "{{ user_id }}";
         
         // Modal functions
@@ -98,7 +98,7 @@
             document.getElementById(id).style.display = 'none';
         }
         
-        // 載入檔案
+        // loadfile
         document.addEventListener('DOMContentLoaded', loadFiles);
         
         function loadFiles() {
@@ -108,8 +108,7 @@
                     .then(data =>{
                     console.log("Files response:", data); 
                     const table = document.getElementById('files-table');
-                    
-                    // 清除現有行（保留表頭）
+
                     while (table.rows.length > 1) {
                         table.deleteRow(1);
                     }
@@ -132,13 +131,13 @@
                             downloadBtn.onclick = function() { window.location.href = `/download/${file.id}`; };
                             cell3.appendChild(downloadBtn);
 
-                            const editBtn = document.createElement('button');
-                            editBtn.textContent = 'Edit';
-                            editBtn.className = 'btn';
-                            editBtn.onclick = function() { openEditModal(file.id, file.filename); };
-                            cell3.appendChild(editBtn);
-
                             if (!file.shared) {
+                                const editBtn = document.createElement('button');
+                                editBtn.textContent = 'Edit';
+                                editBtn.className = 'btn';
+                                editBtn.onclick = function() { openEditModal(file.id, file.filename); };
+                                cell3.appendChild(editBtn);
+
                                 const shareBtn = document.createElement('button');
                                 shareBtn.textContent = 'Share';
                                 shareBtn.className = 'btn';
@@ -171,7 +170,7 @@
                 });
         }
         
-        // 上傳檔案
+        // upload file
         document.getElementById('upload-form').onsubmit = function(e) {
             e.preventDefault();
             
@@ -188,7 +187,6 @@
         };
         
         function uploadFile(fileData, filename) {
-        // 先發送到客戶端 Python 進行加密
         console.log("Uploading with userId:", userId);
         fetch('/encrypt', {
             method: 'POST',
@@ -196,23 +194,21 @@
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                file_data: Array.from(fileData)  // 轉換為數組以便 JSON 序列化
+                file_data: Array.from(fileData)
             })
         })
         .then(response => response.json())
         .then(encryptedResult => {
-            // 創建一個包含加密數據的 Blob
+
             const encryptedData = new Uint8Array(encryptedResult.encrypted_data);
             const blob = new Blob([encryptedData]);
-            
-            // 創建表單數據
+
             const formData = new FormData();
             formData.append('file', blob, filename);
             formData.append('user_id', userId);
             formData.append('filename', filename);
             formData.append('metadata', encryptedResult.metadata);
-            
-            // 將加密後的數據上傳到伺服器
+
             return fetch('{{ base_url }}/api/upload_file', {
                 method: 'POST',
                 body: formData
@@ -264,7 +260,7 @@
             });
         };
 
-        // 分享檔案
+        // share file
         function prepareShare(fileId) {
             document.getElementById('share-file-id').value = fileId;
             document.getElementById('share-modal').style.display = 'block';

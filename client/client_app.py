@@ -323,7 +323,10 @@ def download_endpoint(file_id):
     if key_response.status_code == 200:
         key_data = key_response.json()
         if key_data.get('success'):
-            encrypted_AES_Key_bytes = base64.b64decode(key_data['encrypted_key'])
+            if key_data.get('owner_result'):
+                print("retrieve owner's SK")
+            else:
+                encrypted_AES_Key_bytes = base64.b64decode(key_data['encrypted_key'])
         else:
             print("Error:", key_data.get('error'))
     else:
